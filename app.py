@@ -18,7 +18,7 @@ import locale
 import datetime
 import tempfile
 from pdf import build_pdf
-locale.setlocale(locale.LC_TIME, "es_ES.UTF-8")
+from babel.dates import format_date, format_datetime
 
 # --------------------------
 # Funciones
@@ -340,7 +340,9 @@ with tab2:
         # Días de acceso
         st.divider()
         
-        dfVisitCopy["Dia de la semana"] = dfVisitCopy["Fecha visita2"].dt.day_name(locale="Spanish")
+        dfVisitCopy["Dia de la semana"] = dfVisitCopy["Fecha visita2"].apply(
+            lambda d: format_datetime(d, "EEEE", locale="es") if pd.notnull(d) else None
+        )
         daysOrder = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
         
         st.markdown("<h3 style='color: #2db1fc; font-weight: bold;'>Días de acceso</h3>", unsafe_allow_html=True)
@@ -802,7 +804,9 @@ with tab2:
         daysOrder   = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
         orderActive = [d for d in daysOrder if d in activeDays]
         dfStore_week = dfStore.copy()
-        dfStore_week["Dia de la semana"] = dfStore_week["Fecha"].dt.day_name(locale="es_ES")
+        dfStore_week["Dia de la semana"] = dfStore_week["Fecha"].apply(
+            lambda d: format_datetime(d, "EEEE", locale="es") if pd.notnull(d) else None
+        )
         fact_store = (
             dfStore_week.groupby("Dia de la semana", as_index=False)["TOTAL FACTURACIÓN TIENDA"]
             .sum()
