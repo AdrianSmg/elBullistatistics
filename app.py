@@ -189,6 +189,11 @@ def fmt_euro(x):
                 return f"{float(x):,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
             except Exception:
                 return x
+            
+def day_name_es(x):
+    if pd.isnull(x):
+        return None
+    return format_datetime(pd.to_datetime(x), "EEEE", locale="es").capitalize()
 
 # --------------------------
 # Configuración de la página
@@ -340,9 +345,7 @@ with tab2:
         # Días de acceso
         st.divider()
         
-        dfVisitCopy["Dia de la semana"] = dfVisitCopy["Fecha visita2"].apply(
-            lambda d: format_datetime(d, "EEEE", locale="es") if pd.notnull(d) else None
-        )
+        dfVisitCopy["Dia de la semana"] = dfVisitCopy["Fecha visita2"].apply(day_name_es)
         daysOrder = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
         
         st.markdown("<h3 style='color: #2db1fc; font-weight: bold;'>Días de acceso</h3>", unsafe_allow_html=True)
@@ -804,9 +807,7 @@ with tab2:
         daysOrder   = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
         orderActive = [d for d in daysOrder if d in activeDays]
         dfStore_week = dfStore.copy()
-        dfStore_week["Dia de la semana"] = dfStore_week["Fecha"].apply(
-            lambda d: format_datetime(d, "EEEE", locale="es") if pd.notnull(d) else None
-        )
+        dfStore_week["Dia de la semana"] = dfStore_week["Fecha"].apply(day_name_es)
         fact_store = (
             dfStore_week.groupby("Dia de la semana", as_index=False)["TOTAL FACTURACIÓN TIENDA"]
             .sum()
