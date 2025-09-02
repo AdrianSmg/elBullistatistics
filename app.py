@@ -657,14 +657,14 @@ with tab2:
         with col1:
             st.markdown('<div style="border: 2px solid #2db1fc; padding: 0.5rem; text-align: center;">Gratuita</div>', unsafe_allow_html=True)
         with col2:
-            st.markdown(f'<div style="border: 2px solid #2db1fc; font-weight: bold; padding: 0.5rem; text-align: center;">{freePax:,}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="border: 2px solid #2db1fc; font-weight: bold; padding: 0.5rem; text-align: center;">{freePax}</div>', unsafe_allow_html=True)
         with col3:
             st.markdown(f'<div style="border: 2px solid #2db1fc; font-weight: bold; padding: 0.5rem; text-align: center;">{freePct:.1f}%</div>', unsafe_allow_html=True)
         col4, col5, col6 = st.columns(3)
         with col4:
             st.markdown('<div style="border: 2px solid #2db1fc; margin-top: 12px; padding: 0.5rem; text-align: center;">De pago</div>', unsafe_allow_html=True)
         with col5:
-            st.markdown(f'<div style="border: 2px solid #2db1fc; font-weight: bold; margin-top: 12px; padding: 0.5rem; text-align: center;">{payPax:,}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="border: 2px solid #2db1fc; font-weight: bold; margin-top: 12px; padding: 0.5rem; text-align: center;">{payPax}</div>', unsafe_allow_html=True)
         with col6:
             st.markdown(f'<div style="border: 2px solid #2db1fc; font-weight: bold; margin-top: 12px; padding: 0.5rem; text-align: center;">{payPct:.1f}%</div>', unsafe_allow_html=True)
         st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
