@@ -200,7 +200,7 @@ def day_name_es(x):
 # Configuración de la página
 # --------------------------
 
-st.set_page_config(page_title="elBullistatistics", page_icon="resources/logo.png", layout="wide")
+st.set_page_config(page_title="elBullistatistics", page_icon="resources/logo2.png", layout="wide")
 
 col1, col2, col3, col4 = st.columns([5, 1, 1, 2])
 with col1:
