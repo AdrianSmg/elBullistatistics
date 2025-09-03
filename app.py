@@ -17,6 +17,7 @@ import altair as alt
 import locale
 import datetime
 import tempfile
+import time
 from pdf import build_pdf
 from babel.dates import format_date, format_datetime
 
@@ -272,16 +273,45 @@ with tab1:
             elif not reservationViewList or not originSummary or not clientList or not storeRevenue or not detailedVisitLog or not parkingSlotLog:
                 st.warning("Debes subir todos los archivos requeridos.")
             else:
-                st.session_state["dfReservation"] = pd.read_excel(reservationViewList)
-                st.session_state["dfOrigin"] = pd.read_excel(originSummary, skiprows=5)
-                st.session_state["dfClient"] = pd.read_excel(clientList, sheet_name="PERFILES GENERAL", skiprows=3)
-                st.session_state["dfGroup"] = pd.read_excel(clientList, sheet_name="GRUPOS", skiprows=6)
-                st.session_state["dfStore"] = pd.read_excel(storeRevenue)
-                st.session_state["dfVisit"] = pd.read_excel(detailedVisitLog, skiprows=5)
-                st.session_state["dfParking"] = pd.read_excel(parkingSlotLog, skiprows=5)
-                st.session_state["reportReady"] = True
+                steps = [
+                    ("Cargando reservationListView...", lambda: pd.read_excel(reservationViewList), "dfReservation"),
+                    ("Cargando procedencias...", lambda: pd.read_excel(originSummary, skiprows=5), "dfOrigin"),
+                    ("Cargando perfiles...", lambda: pd.read_excel(clientList, sheet_name="PERFILES GENERAL", skiprows=3), "dfClient"),
+                    ("Cargando grupos...", lambda: pd.read_excel(clientList, sheet_name="GRUPOS", skiprows=6), "dfGroup"),
+                    ("Cargando ventas tienda...", lambda: pd.read_excel(storeRevenue), "dfStore"),
+                    ("Cargando visitas detalladas...", lambda: pd.read_excel(detailedVisitLog, skiprows=5), "dfVisit"),
+                    ("Cargando parking...", lambda: pd.read_excel(parkingSlotLog, skiprows=5), "dfParking"),
+                ]
 
-                st.success("Todos los campos están listos. **Informe generado** ✅")
+                totalSteps = len(steps) + 1
+                progress = 0
+                incr = int(100 / totalSteps)
+                progress_text = st.empty()
+                bar = st.progress(0, text="Iniciando...")
+
+                try:
+                    for msg, loader_fn, state_key in steps:
+                        progress_text.markdown(f"**{msg}**")
+                        with st.spinner(msg):
+                            df = loader_fn()
+                        st.session_state[state_key] = df
+
+                        progress = min(progress + incr, 99)
+                        bar.progress(progress, text=msg)
+
+                    st.session_state["reportReady"] = True
+                    progress_text.markdown("**Finalizando...**")
+                    bar.progress(100, text="¡Completado!")
+                    time.sleep(0.2)
+                    bar.empty()
+                    progress_text.empty()
+
+                    st.success("Todos los campos están listos. **Informe generado** ✅")
+
+                except Exception as e:
+                    st.session_state["reportReady"] = False
+                    bar.empty()
+                    st.error(f"**Ha ocurrido un error al cargar los datos:** {e}")
         
 # --------------------------
 # Tab2: Informe generado
