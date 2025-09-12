@@ -20,6 +20,7 @@ import tempfile
 import time
 from pdf import build_pdf
 from babel.dates import format_date, format_datetime
+from streamlit_pdf_viewer import pdf_viewer
 
 # --------------------------
 # Funciones
@@ -1048,3 +1049,5 @@ with tab4:
             )
 
     st.subheader("Manual del usuario")
+    with st.container(border=True):
+        pdf_viewer("resources/08_MANUAL_INFORMES Y ESTADÍSTICAS.pdf", width=700, height=1000, zoom_level=1.2, viewer_align="center", show_page_separator=True)
