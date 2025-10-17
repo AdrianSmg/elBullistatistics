@@ -210,10 +210,10 @@ with col4:
     st.image("resources/water.png", width=250, use_container_width=False)
 
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📁 Carga de archivos", 
-    "📊 Informe generado",
-    "⚙️ Exportar el informe",
-    "📖 Manual del usuario"
+    "Carga de archivos", 
+    "Informe generado",
+    "Exportar el informe",
+    "Manual del usuario"
 ])
 
 # --------------------------
@@ -347,7 +347,7 @@ with tab2:
         dfVisit["Fecha visita"] = pd.to_datetime(dfVisit["Fecha visita"], format="%Y-%m-%d %H:%M:%S", errors="coerce")
         dfVisit["Fecha visita2"] = dfVisit["Fecha visita"].dt.normalize()
         dfVisit = dfVisit[(dfVisit["Fecha visita2"] >= startDate) & (dfVisit["Fecha visita2"] <= endDate)]
-        valuesToDelete = ["Regala elBulli1846", "Regala Visita Guiada a elBulli1846", "Parking (3h)", "Regala Visita Guiada elBulli1846"]
+        valuesToDelete = ["Regala elBulli1846", "Regala Visita Guiada a elBulli1846", "Parking (3h)", "Parking (3h) movilidad reducida", "Regala Visita Guiada elBulli1846"]
         dfVisitCopy = dfVisit.loc[~dfVisit["Producto"].isin(valuesToDelete)].copy()
         dfVisitCopy["Hora"] = dfVisitCopy["Fecha visita"].dt.strftime("%H:%M")
 
@@ -679,9 +679,13 @@ with tab2:
         infoBox("Número total de plazas de párking", totalParkings)
 
         st.markdown("<h5 style='color: #292929; font-weight: bold; margin-top: 12px;'>¿Cuál ha sido el promedio de invitaciones?</h3>", unsafe_allow_html=True)
-        total_pax = int(dfVisit["Pax"].sum())
-        freePax = int(dfVisit.loc[dfVisit["Importe (€)"] <= 0, "Pax"].sum())
-        payPax  = int(dfVisit.loc[dfVisit["Importe (€)"] > 0, "Pax"].sum())
+        dfVisitCopy2 = dfVisit.copy()
+        exceptions = {"Menor 11 años", "Acompañante persona discapacitada a partir del 50%"}
+        maskExc = dfVisitCopy2["Colectivo"].isin(exceptions)
+        dfVisitCopy2.loc[maskExc, "Importe (€)"] = (dfVisitCopy2.loc[maskExc, "Importe (€)"].fillna(0) + 1)
+        total_pax = int(dfVisitCopy2["Pax"].sum())
+        freePax = int(dfVisitCopy2.loc[dfVisitCopy2["Importe (€)"] <= 0, "Pax"].sum())
+        payPax  = int(dfVisitCopy2.loc[dfVisitCopy2["Importe (€)"] > 0, "Pax"].sum())
         freePct = (freePax / total_pax * 100) if total_pax > 0 else 0.0
         payPct = (payPax  / total_pax * 100) if total_pax > 0 else 0.0
         col1, col2, col3 = st.columns(3)
@@ -704,13 +708,15 @@ with tab2:
 
             grupos = dfDynamic["Grupo"].dropna().tolist()
             grupos_str = ", ".join(grupos)
+            freePct2 = ((freePax - realPaymentPax) / total_pax * 100) if total_pax > 0 else 0.0
+            payPct2 = ((payPax + realPaymentPax)  / total_pax * 100) if total_pax > 0 else 0.0
 
             message = (
                 f"En el promedio de invitaciones, el número de gratuitas, **{freePax} PAX**, "
                 f"incluye los **{realPaymentPax}** de {grupos_str}; que realmente no son gratuitas.  \n\n"
                 f"El porcentaje real de invitaciones es:  \n"
-                f"- **Gratuita** → {freePax - realPaymentPax} PAX ({freePct:.1f}%)  \n"
-                f"- **De pago** → {payPax + realPaymentPax} PAX ({payPct:.1f}%)"
+                f"- **Gratuita** → {freePax - realPaymentPax} PAX ({freePct2:.1f}%)  \n"
+                f"- **De pago** → {payPax + realPaymentPax} PAX ({payPct2:.1f}%)"
             )
 
             st.info(message)
