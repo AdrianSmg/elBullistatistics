@@ -262,7 +262,7 @@ with tab1:
 
         col1, col2, col3 = st.columns([3, 1, 3])
         with col2:
-            generateButton = st.form_submit_button("✅ Generar informe")
+            generateButton = st.form_submit_button("Generar informe")
 
         # Errores de campos obligatorios y éxito en la creación del informe
 
@@ -307,7 +307,7 @@ with tab1:
                     bar.empty()
                     progress_text.empty()
 
-                    st.success("Todos los campos están listos. **Informe generado** ✅")
+                    st.success("Todos los campos están listos. **Informe generado**")
 
                 except Exception as e:
                     st.session_state["reportReady"] = False
@@ -325,7 +325,7 @@ with tab2:
     # Estado sin generar
 
     if not st.session_state.get("reportReady"):
-        st.info("🔎 Sube los archivos y pulsa **«Generar informe»** en la pestaña de carga de archivos.")
+        st.info("Sube los archivos y pulsa **«Generar informe»** en la pestaña de carga de archivos.")
 
     # Estado generado
 
@@ -407,7 +407,7 @@ with tab2:
                 return "background-color: #ffcccc; color: red; font-weight: bold;"
             return ""
         def highlightHigherThan100(val):
-            if val >= 100 and reportType == "🗓️ Informe combinado de varios meses":
+            if val >= 100 and reportType == "Informe combinado de varios meses":
                 return "background-color: #ffe699; color: #b58900; font-weight: bold;"
             return ""
         def boldTotalRow(row):
@@ -951,7 +951,7 @@ with tab2:
 
             st.divider()
             st.subheader("Modo desarrollador")
-            st.warning("⚠️ El modo desarrollador está activo")
+            st.warning("El modo desarrollador está activo")
 
             st.session_state["dfVisitCopy"] = dfVisitCopy
             st.session_state["dfReservation"] = dfReservation
@@ -997,7 +997,7 @@ with tab3:
     
     st.subheader("Generador de PDFs")
     if not st.session_state.get("reportReady"):
-        st.info("🔎 Sube los archivos y pulsa **«Generar informe»** en la pestaña de carga de archivos para activar el **Generador de PDFs**.")
+        st.info("Sube los archivos y pulsa **«Generar informe»** en la pestaña de carga de archivos para activar el **Generador de PDFs**.")
     else:
 
         with st.container(border=True):
@@ -1036,7 +1036,7 @@ with tab3:
                         temp_path = tmp.name
                     with open(temp_path, "rb") as f:
                         pdf_bytes = f.read()
-                    st.download_button("⬇️ Descargar informe", data=pdf_bytes, file_name="informe.pdf", mime="application/pdf")
+                    st.download_button("Descargar informe", data=pdf_bytes, file_name="informe.pdf", mime="application/pdf")
                     st.success("PDF generado. ¡Listo para descargar!")
 
 # --------------------------
@@ -1048,7 +1048,7 @@ with tab4:
     st.subheader("Manual en PDF")
     with open("resources/Plantilla_Informe_Estadistico.docx", "rb") as file:
             st.download_button(
-                label="📄 Descargar manual en formato PDF",
+                label="Descargar manual en formato PDF",
                 data=file,
                 file_name="Plantilla_Informe_Estadistico.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
