@@ -634,8 +634,12 @@ with tab2:
 
         st.markdown("<h3 style='color: #2db1fc; font-weight: bold;'>Producto adquirido por el visitante</h3>", unsafe_allow_html=True)
         st.markdown("<h5 style='color: #292929; font-weight: bold;'>¿Cuántos visitantes adquieren cada tipo de producto?</h3>", unsafe_allow_html=True)
+        def ctrl_producto(row):
+            if pd.notna(row.get("Fondo")) and str(row["Fondo"]).strip():
+                return row["Fondo"]
+            return {"Visita Guiada": "Visita guiada a elBulli1846"}.get(row["Tipo de visita"], row["Tipo de visita"])
         dfCtrl_prod = pd.DataFrame({
-            "Producto": dfCtrl["Tipo de visita"].replace({"Visita Guiada": "Visita guiada a elBulli1846"}),
+            "Producto": dfCtrl.apply(ctrl_producto, axis=1),
             "Pax": dfCtrl["Pax"]
         })
         dfVisit_ext_prod = pd.concat([dfVisitCopy[["Producto", "Pax"]], dfCtrl_prod], ignore_index=True)
@@ -687,7 +691,8 @@ with tab2:
             height=None,
             show_percent_labels=True,
         )
-        
+        st.info("Los grupos privados gestionados fuera de Clorian se registran bajo el colectivo **General**, independientemente de su perfil real. Por este motivo, algunos colectivos como **Estudiante** pueden estar infrarrepresentados en este gráfico.")
+
         # Información adicional del museo
         st.divider()
 
