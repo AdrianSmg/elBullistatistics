@@ -232,6 +232,7 @@ with tab1:
     st.session_state.setdefault("dfStore", None)
     st.session_state.setdefault("dfVisit", None)
     st.session_state.setdefault("dfParking", None)
+    st.session_state.setdefault("dfControlVisitas", None)
 
     # Formulario de creación del informe
 
@@ -252,6 +253,7 @@ with tab1:
         storeRevenue = st.file_uploader("Subir archivo **Facturación de la Tienda**", type="xlsx")
         detailedVisitLog = st.file_uploader("Subir archivo **Diario de Visitas detallado**", type="xlsx")
         parkingSlotLog = st.file_uploader("Subir archivo **Diario de Visitas-Plazas Parking**", type="xlsx")
+        controlVisitasFueraClorian = st.file_uploader("Subir archivo **ControlVisitasFueraClorian**", type="xlsx")
         st.markdown("<label style='font-size: 0.9rem;'><strong>(Opcional)</strong> Entradas no realmente gratuitas</label>", unsafe_allow_html=True)
         dfEmpty = pd.DataFrame({"Grupo": pd.Series(dtype="string"), "PAX": pd.Series(dtype="Int64")})
         dfDynamic = st.data_editor(dfEmpty, num_rows="dynamic", column_config={"Grupo": st.column_config.TextColumn("Grupo"), "PAX": st.column_config.NumberColumn("PAX", min_value=0, step=1),})
@@ -271,17 +273,18 @@ with tab1:
                 st.warning("Debes asignar un nombre al informe.")
             elif startDate > endDate:
                 st.error("La fecha de inicio no puede ser posterior a la de fin.")
-            elif not reservationViewList or not originSummary or not clientList or not storeRevenue or not detailedVisitLog or not parkingSlotLog:
+            elif not reservationViewList or not originSummary or not clientList or not storeRevenue or not detailedVisitLog or not parkingSlotLog or not controlVisitasFueraClorian:
                 st.warning("Debes subir todos los archivos requeridos.")
             else:
                 steps = [
                     ("Cargando reservationListView...", lambda: pd.read_excel(reservationViewList), "dfReservation"),
                     ("Cargando procedencias...", lambda: pd.read_excel(originSummary, skiprows=5), "dfOrigin"),
-                    ("Cargando perfiles...", lambda: pd.read_excel(clientList, sheet_name="PERFILES GENERAL", skiprows=3), "dfClient"),
-                    ("Cargando grupos...", lambda: pd.read_excel(clientList, sheet_name="GRUPOS", skiprows=6), "dfGroup"),
-                    ("Cargando ventas tienda...", lambda: pd.read_excel(storeRevenue), "dfStore"),
+                    ("Cargando perfiles...", lambda: pd.read_excel(clientList, sheet_name="PERFILES GENERAL", skiprows=4), "dfClient"),
+                    ("Cargando grupos...", lambda: pd.read_excel(clientList, sheet_name="GRUPOS", skiprows=5), "dfGroup"),
+                    ("Cargando ventas tienda...", lambda: pd.read_excel(storeRevenue, names=["Fecha", "TOTAL FACTURACIÓN TIENDA"], skiprows=1), "dfStore"),
                     ("Cargando visitas detalladas...", lambda: pd.read_excel(detailedVisitLog, skiprows=5), "dfVisit"),
                     ("Cargando parking...", lambda: pd.read_excel(parkingSlotLog, skiprows=5), "dfParking"),
+                    ("Cargando control visitas fuera Clorian...", lambda: pd.read_excel(controlVisitasFueraClorian, skiprows=4), "dfControlVisitas"),
                 ]
 
                 totalSteps = len(steps) + 1
@@ -338,9 +341,19 @@ with tab2:
         dfStore = st.session_state["dfStore"]
         dfVisit = st.session_state["dfVisit"]
         dfParking = st.session_state["dfParking"]
-        
+        dfControlVisitas = st.session_state["dfControlVisitas"]
+
         startDate = pd.to_datetime(st.session_state["startDate"])
         endDate = pd.to_datetime(st.session_state["endDate"])
+
+        # ----- ControlVisitasFueraClorian -----
+
+        dfCtrl = dfControlVisitas.dropna(subset=["Fecha"]).copy()
+        dfCtrl["Fecha"] = pd.to_datetime(dfCtrl["Fecha"], errors="coerce").dt.normalize()
+        dfCtrl = dfCtrl[(dfCtrl["Fecha"] >= startDate) & (dfCtrl["Fecha"] <= endDate)]
+        dfCtrl["Pax"] = dfCtrl["Tickets Pago"].fillna(0).astype(int) + dfCtrl["Invitaciones"].fillna(0).astype(int)
+        dfCtrl["Hora"] = dfCtrl["Hora"].apply(lambda t: t.strftime("%H:%M") if hasattr(t, "strftime") else None)
+        dfCtrl["Dia de la semana"] = dfCtrl["Fecha"].apply(day_name_es)
 
         # ----- Diario de visitas detallado -----
         
@@ -356,8 +369,12 @@ with tab2:
 
         st.markdown("<h3 style='color: #2db1fc; font-weight: bold;'>Horas de acceso</h3>", unsafe_allow_html=True)
         st.markdown("<h5 style='color: #292929; font-weight: bold;'>¿A qué hora se visita el museo?</h3>", unsafe_allow_html=True)
+        dfVisitCopy_ext_hora = pd.concat(
+            [dfVisitCopy[["Hora", "Pax"]], dfCtrl.dropna(subset=["Hora"])[["Hora", "Pax"]]],
+            ignore_index=True
+        )
         pivotTime = makePivot(
-            df=dfVisitCopy,
+            df=dfVisitCopy_ext_hora,
             index_col="Hora",
             value_col="Pax",
             aggfunc="sum",
@@ -381,8 +398,12 @@ with tab2:
         
         st.markdown("<h3 style='color: #2db1fc; font-weight: bold;'>Días de acceso</h3>", unsafe_allow_html=True)
         st.markdown("<h5 style='color: #292929; font-weight: bold;'>¿Qué días de la semana se visita el museo?</h3>", unsafe_allow_html=True)
+        dfVisitCopy_ext_dia = pd.concat(
+            [dfVisitCopy[["Dia de la semana", "Pax"]], dfCtrl[["Dia de la semana", "Pax"]]],
+            ignore_index=True
+        )
         pivotDay = makePivot(
-            df=dfVisitCopy,
+            df=dfVisitCopy_ext_dia,
             index_col="Dia de la semana",
             value_col="Pax",
             aggfunc="sum",
@@ -417,8 +438,13 @@ with tab2:
         
         st.markdown("<h3 style='color: #2db1fc; font-weight: bold;'>Horas de acceso según día de la semana</h3>", unsafe_allow_html=True)
         st.markdown("<h5 style='color: #292929; font-weight: bold;'>¿Cúantos visitantes hay en cada franja de acceso?</h3>", unsafe_allow_html=True)
+        dfCtrl_dayhour = dfCtrl.dropna(subset=["Hora"])[["Hora", "Dia de la semana", "Pax"]]
+        dfVisitCopy_ext_dayhour = pd.concat(
+            [dfVisitCopy[["Hora", "Dia de la semana", "Pax"]], dfCtrl_dayhour],
+            ignore_index=True
+        )
         pivotDayHour = pd.pivot_table(
-            dfVisitCopy,
+            dfVisitCopy_ext_dayhour,
             index="Hora",
             columns="Dia de la semana",
             values="Pax",
@@ -465,13 +491,13 @@ with tab2:
         
         # ----- ReservationListView -----
 
-        dfReservation["Fecha reserva / compra"] = pd.to_datetime(dfReservation["Fecha reserva / compra"], dayfirst=True, errors="coerce")
-        dfReservation["Fecha visita"] = pd.to_datetime(dfReservation["Fecha visita"], dayfirst=True, errors="coerce")
-        dfReservation = dfReservation[(dfReservation["Fecha visita"] >= startDate) & (dfReservation["Fecha visita"] <= endDate)]
-        dfReservation = dfReservation[~dfReservation["Producto"].isin(valuesToDelete)]
-        reservationDay = dfReservation["Fecha reserva / compra"].dt.normalize()
-        visitDay = dfReservation["Fecha visita"].dt.normalize()
-        dfReservation["Fecha visita2"] = dfReservation["Fecha visita"].dt.normalize()
+        dfReservation["Data reserva / compra"] = pd.to_datetime(dfReservation["Data reserva / compra"], dayfirst=True, errors="coerce")
+        dfReservation["Data visita"] = pd.to_datetime(dfReservation["Data visita"], dayfirst=True, errors="coerce")
+        dfReservation = dfReservation[(dfReservation["Data visita"] >= startDate) & (dfReservation["Data visita"] <= endDate)]
+        dfReservation = dfReservation[~dfReservation["Producte"].isin(valuesToDelete)]
+        reservationDay = dfReservation["Data reserva / compra"].dt.normalize()
+        visitDay = dfReservation["Data visita"].dt.normalize()
+        dfReservation["Fecha visita2"] = dfReservation["Data visita"].dt.normalize()
         dfReservation["Antelacion"] = (visitDay - reservationDay).dt.days
         
         # Antelación de compra
@@ -502,11 +528,22 @@ with tab2:
         st.markdown("<h3 style='color: #2db1fc; font-weight: bold;'>Antelación de compra</h3>", unsafe_allow_html=True)
         st.markdown("<h5 style='color: #292929; font-weight: bold;'>¿Con cuántos días de anticipación se adquieren las entradas al museo?</h3>", unsafe_allow_html=True)
         dfReservation["Antelacion clasificada"] = dfReservation["Antelacion"].apply(classifyDays)
+
+        dfCtrl_advance = dfCtrl.dropna(subset=["Antelación de compra"]).copy()
+        dfCtrl_advance["Antelación de compra"] = pd.to_datetime(dfCtrl_advance["Antelación de compra"], errors="coerce").dt.normalize()
+        dfCtrl_advance["Antelacion"] = (dfCtrl_advance["Fecha"] - dfCtrl_advance["Antelación de compra"]).dt.days
+        dfCtrl_advance["Antelacion clasificada"] = dfCtrl_advance["Antelacion"].apply(classifyDays)
+        dfCtrl_advance["Tickets vàlids"] = dfCtrl_advance["Pax"]
+        dfReservation_ext = pd.concat(
+            [dfReservation[["Antelacion clasificada", "Tickets vàlids"]], dfCtrl_advance[["Antelacion clasificada", "Tickets vàlids"]]],
+            ignore_index=True
+        )
+
         advanceOrder = ["0 días", "1 día", "2-5 días", "6-10 días", "11-20 días", "21-30 días", "31-60 días", "61-90 días", "+90 días"]
         pivotAdvance = makePivot(
-            df=dfReservation,
+            df=dfReservation_ext,
             index_col="Antelacion clasificada",
-            value_col="Tickets Válidos",
+            value_col="Tickets vàlids",
             aggfunc="sum",
             label_fmt=None
         )
@@ -515,7 +552,7 @@ with tab2:
         renderBlockWithTable(
             pivot_df=pivotAdvance,
             label_col="label",
-            value_col="Tickets Válidos",
+            value_col="Tickets vàlids",
             label_title="Antelación",
             color="#2db1fc",
             height=420,
@@ -527,21 +564,22 @@ with tab2:
         # Resumen de Procedencias
         st.divider()
 
-        periods = pd.period_range(start=startDate, end=endDate, freq="M")
-        dfOrigin["__periodo"] = pd.to_datetime(
-            dfOrigin["Fecha visita"], format="%B %Y", errors="coerce"
-        ).dt.to_period("M")
-        dfOrigin = dfOrigin[dfOrigin["__periodo"].isin(periods)].copy()
-        dfOrigin.drop(columns="__periodo", inplace=True)
-
         st.markdown("<h3 style='color: #2db1fc; font-weight: bold;'>Procedencia de los visitantes por países</h3>", unsafe_allow_html=True)
         st.markdown("<h5 style='color: #292929; font-weight: bold;'>¿De qué países provienen los visitantes del museo?</h3>", unsafe_allow_html=True)
         dfOrigin["Procedencia clasificada"] = dfOrigin["Procedencia"]
         dfOrigin["Cógido Postal Texto"] = dfOrigin["Código postal"].astype(str).str.strip().str[:5]
         dfOrigin.loc[(dfOrigin["Procedencia"] == "España") & (dfOrigin["Comunidad"] == "Catalunya") & (dfOrigin["Cógido Postal Texto"] == "17480"), "Procedencia clasificada"] = "Roses"
         dfOrigin.loc[(dfOrigin["Procedencia"] == "España") & (dfOrigin["Comunidad"] == "Catalunya") & (dfOrigin["Cógido Postal Texto"] != "17480"), "Procedencia clasificada"] = "Catalunya"
+        dfCtrl_origin = pd.DataFrame({
+            "Procedencia clasificada": ["España"] * len(dfCtrl),
+            "Pax": dfCtrl["Pax"].values
+        })
+        dfOrigin_ext = pd.concat(
+            [dfOrigin[["Procedencia clasificada", "Pax"]], dfCtrl_origin],
+            ignore_index=True
+        )
         pivotOrigin = makePivot(
-            df=dfOrigin,
+            df=dfOrigin_ext,
             index_col="Procedencia clasificada",
             value_col="Pax",
             aggfunc="sum",
@@ -592,12 +630,17 @@ with tab2:
         # Producto adquirido por el visitante
         st.divider()
 
-        dfVisit.loc[dfVisit["Producto"] == "Visita exclusiva a elBulli1846", "Producto"] = "Visita guiada a elBulli1846"
+        dfVisitCopy.loc[dfVisitCopy["Producto"] == "Visita exclusiva a elBulli1846", "Producto"] = "Visita guiada a elBulli1846"
 
         st.markdown("<h3 style='color: #2db1fc; font-weight: bold;'>Producto adquirido por el visitante</h3>", unsafe_allow_html=True)
         st.markdown("<h5 style='color: #292929; font-weight: bold;'>¿Cuántos visitantes adquieren cada tipo de producto?</h3>", unsafe_allow_html=True)
+        dfCtrl_prod = pd.DataFrame({
+            "Producto": dfCtrl["Tipo de visita"].replace({"Visita Guiada": "Visita guiada a elBulli1846"}),
+            "Pax": dfCtrl["Pax"]
+        })
+        dfVisit_ext_prod = pd.concat([dfVisitCopy[["Producto", "Pax"]], dfCtrl_prod], ignore_index=True)
         pivotProduct = makePivot(
-            df=dfVisit,
+            df=dfVisit_ext_prod,
             index_col="Producto",
             value_col="Pax",
             aggfunc="sum",
@@ -620,8 +663,16 @@ with tab2:
 
         st.markdown("<h3 style='color: #2db1fc; font-weight: bold;'>Colectivo del visitante</h3>", unsafe_allow_html=True)
         st.markdown("<h5 style='color: #292929; font-weight: bold;'>¿A qué colectivo pertenecen los visitantes al museo?</h3>", unsafe_allow_html=True)
+        dfCtrl_colectivo = pd.DataFrame({
+            "Colectivo": dfCtrl["Colectivo"],
+            "Pax": dfCtrl["Pax"]
+        })
+        dfVisit_ext_colectivo = pd.concat(
+            [dfVisit[["Colectivo", "Pax"]], dfCtrl_colectivo],
+            ignore_index=True
+        )
         pivotCollective = makePivot(
-            df=dfVisit,
+            df=dfVisit_ext_colectivo,
             index_col="Colectivo",
             value_col="Pax",
             aggfunc="sum",
@@ -649,14 +700,22 @@ with tab2:
             .sort_values("Fecha visita")
             .reset_index(drop=True)
         )
-        openDays = int((pivot_dias["Pax"] > 0).sum())
-        
+
+        pax_ctrl_dia = dfCtrl.groupby("Fecha", as_index=False)["Pax"].sum()
+        pivot_combined = pivot_dias.merge(
+            pax_ctrl_dia.rename(columns={"Pax": "Pax_ext", "Fecha": "Fecha visita"}),
+            on="Fecha visita",
+            how="outer"
+        ).fillna(0)
+        pivot_combined["Pax_total"] = pivot_combined["Pax"] + pivot_combined["Pax_ext"]
+        openDays = int((pivot_combined["Pax_total"] > 0).sum())
+
         # --> Días abiertos
         st.markdown("<h5 style='color: #292929; font-weight: bold;'>¿Cuántos días se ha abierto el museo?</h3>", unsafe_allow_html=True)
         infoBox("Días abiertos", openDays)
 
-        totalVisitors = int(dfVisit["Pax"].sum())
-        visitAverage = int(totalVisitors / openDays)
+        totalVisitors = int(dfVisit["Pax"].sum()) + int(dfCtrl["Pax"].sum())
+        visitAverage = int(totalVisitors / openDays) if openDays > 0 else 0
 
         # --> Media de visitantes
         st.markdown("<h5 style='color: #292929; font-weight: bold; margin-top: 12px;'>¿Cuál ha sido la media de visitantes por día?</h3>", unsafe_allow_html=True)
@@ -683,9 +742,11 @@ with tab2:
         exceptions = {"Menor 11 años", "Acompañante persona discapacitada a partir del 50%"}
         maskExc = dfVisitCopy2["Colectivo"].isin(exceptions)
         dfVisitCopy2.loc[maskExc, "Importe (€)"] = (dfVisitCopy2.loc[maskExc, "Importe (€)"].fillna(0) + 1)
-        total_pax = int(dfVisitCopy2["Pax"].sum())
-        freePax = int(dfVisitCopy2.loc[dfVisitCopy2["Importe (€)"] <= 0, "Pax"].sum())
-        payPax  = int(dfVisitCopy2.loc[dfVisitCopy2["Importe (€)"] > 0, "Pax"].sum())
+        ctrl_pago = int(dfCtrl["Tickets Pago"].fillna(0).sum())
+        ctrl_inv  = int(dfCtrl["Invitaciones"].fillna(0).sum())
+        freePax = int(dfVisitCopy2.loc[dfVisitCopy2["Importe (€)"] <= 0, "Pax"].sum()) + ctrl_inv
+        payPax  = int(dfVisitCopy2.loc[dfVisitCopy2["Importe (€)"] > 0, "Pax"].sum()) + ctrl_pago
+        total_pax = freePax + payPax
         freePct = (freePax / total_pax * 100) if total_pax > 0 else 0.0
         payPct = (payPax  / total_pax * 100) if total_pax > 0 else 0.0
         col1, col2, col3 = st.columns(3)
@@ -786,8 +847,16 @@ with tab2:
         
         dfVisit = dfVisit[dfVisit["Importe (€)"] > 0]
 
+        dfCtrl_taquilla = dfCtrl[dfCtrl["Tickets Pago"].fillna(0) > 0].copy()
+        dfCtrl_taquilla["Importe (€)"] = dfCtrl_taquilla["Tickets Pago"].fillna(0) * dfCtrl_taquilla["Precio"].fillna(0)
+        dfCtrl_taquilla = dfCtrl_taquilla.rename(columns={"Fecha": "Fecha visita"})
+        dfVisit_ext_taquilla = pd.concat([
+            dfVisit[["Fecha visita", "Importe (€)"]],
+            dfCtrl_taquilla[["Fecha visita", "Importe (€)"]]
+        ], ignore_index=True)
+
         pivotTickets = makePivot(
-            df=dfVisit,
+            df=dfVisit_ext_taquilla,
             index_col="Fecha visita",
             value_col="Importe (€)",
             aggfunc="sum",
@@ -804,16 +873,16 @@ with tab2:
             show_percent_labels=False,
             value_format="euro",
             chart_type="line",
-            temporal_col="Fecha visita", 
+            temporal_col="Fecha visita",
         )
 
-        totalTickets = int(dfVisit["Importe (€)"].sum())
+        totalTickets = int(dfVisit_ext_taquilla["Importe (€)"].sum())
         totalTicketsFmt = f"{totalTickets:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
 
         if reportType == "📆 Informe mensual":
             infoBox("<b>Facturación total de la taquilla</b>", totalTicketsFmt)
         elif reportType == "🗓️ Informe combinado de varios meses":
-            df_tmp = dfVisit.copy()
+            df_tmp = dfVisit_ext_taquilla.copy()
             if not pd.api.types.is_datetime64_any_dtype(df_tmp["Fecha visita"]):
                 df_tmp["Fecha visita"] = pd.to_datetime(df_tmp["Fecha visita"], errors="coerce")
             df_tmp = df_tmp[df_tmp["Importe (€)"] > 0].copy()
@@ -917,8 +986,7 @@ with tab2:
         
         st.markdown("<h3 style='color: #2db1fc; font-weight: bold;'>Información adicional de grupos</h3>", unsafe_allow_html=True)
 
-        groupSheet = dfGroup[["FECHA", "NOMBRE RESERVA", "PAX", "EMPRESA / OTRO TIPO GRUPO", "NOTAS"]]
-        groupSheet["FECHA"] = groupSheet["FECHA"].dt.strftime("%d/%m/%Y")
+        groupSheet = dfGroup[["FECHA", "NOMBRE RESERVA", "PAX", "EMPRESA / OTRO TIPO GRUPO", "NOTAS"]].copy()
         groupSheet = groupSheet.rename(columns={
             "FECHA": "Fecha",
             "NOMBRE RESERVA": "Nombre de la reserva",
@@ -926,17 +994,21 @@ with tab2:
             "EMPRESA / OTRO TIPO GRUPO": "Empresa / Otros grupos",
             "NOTAS": "Observaciones"
         })
+
+        groupSheet = pd.concat([groupSheet], ignore_index=True)
+        groupSheet = groupSheet.sort_values("Fecha").reset_index(drop=True)
         groupSheet["Observaciones"] = groupSheet["Observaciones"].fillna("-")
+        groupSheet["Fecha"] = pd.to_datetime(groupSheet["Fecha"]).dt.strftime("%d/%m/%Y")
 
         # --> Número total de grupos
         st.markdown("<h5 style='color: #292929; font-weight: bold;'>¿Cuántos grupos (+ 10 PAX) han visitado el museo?</h3>", unsafe_allow_html=True)
-        groupNumber = len(dfGroup)
+        groupNumber = len(groupSheet)
         infoBox("Número de grupos", groupNumber)
         st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
         # --> Total de visitantes en grupo
         st.markdown("<h5 style='color: #292929; font-weight: bold;'>¿Cuál es el total de visitantes en grupo?</h3>", unsafe_allow_html=True)
-        totalGroups = dfGroup["PAX"].sum()
+        totalGroups = groupSheet["Nº PAX"].sum()
         infoBox("Total de visitantes en grupo", totalGroups)
         st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
