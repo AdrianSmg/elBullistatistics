@@ -360,6 +360,8 @@ with tab2:
         dfVisit["Fecha visita"] = pd.to_datetime(dfVisit["Fecha visita"], format="%Y-%m-%d %H:%M:%S", errors="coerce")
         dfVisit["Fecha visita2"] = dfVisit["Fecha visita"].dt.normalize()
         dfVisit = dfVisit[(dfVisit["Fecha visita2"] >= startDate) & (dfVisit["Fecha visita2"] <= endDate)]
+        upgradeVisitaPax = int(dfVisit.loc[dfVisit["Producto"] == "Upgrade Visita Guiada", "Pax"].sum())
+        dfVisit.loc[dfVisit["Producto"] == "Upgrade Visita Guiada", "Pax"] = 0
         valuesToDelete = ["Regala elBulli1846", "Regala Visita Guiada a elBulli1846", "Parking (3h)", "Parking (3h) movilidad reducida", "Regala Visita Guiada elBulli1846"]
         dfVisitCopy = dfVisit.loc[~dfVisit["Producto"].isin(valuesToDelete)].copy()
         dfVisitCopy["Hora"] = dfVisitCopy["Fecha visita"].dt.strftime("%H:%M")
@@ -494,6 +496,7 @@ with tab2:
         dfReservation["Data reserva / compra"] = pd.to_datetime(dfReservation["Data reserva / compra"], dayfirst=True, errors="coerce")
         dfReservation["Data visita"] = pd.to_datetime(dfReservation["Data visita"], dayfirst=True, errors="coerce")
         dfReservation = dfReservation[(dfReservation["Data visita"] >= startDate) & (dfReservation["Data visita"] <= endDate)]
+        dfReservation.loc[dfReservation["Producte"] == "Upgrade Visita Guiada", "Tickets vàlids"] = 0
         dfReservation = dfReservation[~dfReservation["Producte"].isin(valuesToDelete)]
         reservationDay = dfReservation["Data reserva / compra"].dt.normalize()
         visitDay = dfReservation["Data visita"].dt.normalize()
@@ -650,6 +653,9 @@ with tab2:
             aggfunc="sum",
             label_fmt=None
         )
+        mask_upgrade = pivotProduct["label"] == "Upgrade Visita Guiada"
+        if mask_upgrade.any():
+            pivotProduct.loc[mask_upgrade, "Pax"] = upgradeVisitaPax
         renderBlockWithTable(
             pivot_df=pivotProduct,
             label_col="label",
